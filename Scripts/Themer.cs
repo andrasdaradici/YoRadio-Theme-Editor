@@ -24,10 +24,19 @@ public class Themer : MonoBehaviour
     public TextMeshProUGUI ChosenColorText;
     public TextMeshProUGUI FilePath;
     public List<Slider> ColorSliders;
+    public List<TMP_InputField> ColorInputs;
     public Image PreviewColor;
     public bool Wait;
+
+    public bool Copied;
+    public Vector3 CopiedColor;
+
+    public string readData;
+
     void Start()
     {
+        CheckForFile();
+
         for (int i = 0; i < ThemeColors.Count; i++)
         {
             float R255 = ThemeColors[i].ColorRGB255.x;
@@ -70,9 +79,170 @@ public class Themer : MonoBehaviour
         ChangeColor("COLOR_BACKGROUND");
     }
 
+    public void CheckForFile()
+    {
+        string exePath = Application.dataPath.Replace("YoRadio! Theme Editor_Data", "");
+        string filePath = Path.Combine(exePath, "mytheme.h");
+        if (File.Exists(filePath))
+        {
+            GetFileData(filePath);
+        }
+    }
+
+    public string RemoveLines(string text, int numLines)
+    {
+        string[] lines = text.Split('\n');
+
+        if (numLines >= lines.Length)
+            return "";
+
+        return string.Join("\n", lines[numLines..]);
+    }
+
+    string RemoveLinesAfter(string text, int lineNumber)
+    {
+        string[] lines = text.Split('\n');
+
+        if (lineNumber >= lines.Length)
+            return text;
+
+        return string.Join("\n", lines[0..(lineNumber + 1)]);
+    }
+
+    string RemoveDefines(string text)
+    {
+        string[] lines = text.Split('\n');
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            lines[i] = lines[i].Replace("#define ", "");
+        }
+        return string.Join("\n", lines);
+    }
+
+    string ClearText(string fileContent)
+    {
+        fileContent = RemoveLines(fileContent, 10);
+        fileContent = RemoveLinesAfter(fileContent, 32);
+        fileContent = RemoveDefines(fileContent);
+        return fileContent;
+    }
+
+    void GetFileData(string filePath)
+    {
+        string fileContent = File.ReadAllText(filePath);
+
+        fileContent = ClearText(fileContent);
+
+        string[] lines = fileContent.Split("\n");
+
+        Vector3 newVector = new Vector3(0,0,0);
+
+        for (int i = 0; i < lines.Length; i++) 
+        {
+            if (lines[i] == "")
+            {
+                break;
+            }
+
+            string ColorName = "";
+            foreach (char c in lines[i])
+            {
+                if (c == ' ')
+                {
+                    break;
+                }
+                ColorName += c;
+            }
+
+            int ColorIndex = GetIndexByLabel(ColorName);
+
+            string TextToRemove = "";
+            string Color = "";
+
+            string TextWithoutName = lines[i].Replace(ThemeColors[ColorIndex].ColorName, "");
+
+            foreach (char c in TextWithoutName)
+            {
+                if (char.IsDigit(c))
+                {
+                    Color = TextWithoutName.Replace(TextToRemove, "");
+                    break;
+                }
+
+                TextToRemove += c;
+            }
+
+            string[] Parts = Color.Split(", ");
+            
+            newVector = new Vector3(float.Parse(Parts[0]), float.Parse(Parts[1]), float.Parse(Parts[2]));
+
+            ThemeColors[ColorIndex].ColorRGB255 = newVector;
+            ThemeColors[ColorIndex].ColorRGB1 = ConvertRGB(newVector.x, newVector.y, newVector.z);
+
+            Vector3 ColorRGB1 = ThemeColors[ColorIndex].ColorRGB1;
+
+            Color loadedColor = new Color(ColorRGB1.x, ColorRGB1.y, ColorRGB1.z);
+
+            if(ColorName == "COLOR_BITRATE")
+            {
+                Debug.Log(ColorIndex);
+                Debug.Log(ThemeColors[ColorIndex].ColorName);
+                Debug.Log(ThemeColors[ColorIndex].ColorRGB1);
+                Debug.Log(ThemeColors[ColorIndex].ColorRGB255);
+                Debug.Log(loadedColor);
+                Debug.Log(ThemeColors[ColorIndex].ImageToColor.Count);
+                for(int z = 0; z < ThemeColors[ColorIndex].ImageToColor.Count; z++)
+                {
+                    Debug.Log(ThemeColors[ColorIndex].ImageToColor[z].name);
+                }
+            }
+
+            if (ThemeColors[ChosenColor].ImageToColor.Count != 0)
+            {
+                for (int img = 0; img < ThemeColors[ChosenColor].ImageToColor.Count; img++)
+                {
+                    Image image = ThemeColors[ChosenColor].ImageToColor[img];
+                    if (image != null)
+                    {
+                        ThemeColors[ChosenColor].ImageToColor[img].color = loadedColor;
+                    }
+                }
+            }
+
+            if (ThemeColors[ChosenColor].TextToColor.Count != 0)
+            {
+                for (int txt = 0; txt < ThemeColors[ChosenColor].TextToColor.Count; txt++)
+                {
+                    TextMeshProUGUI text = ThemeColors[ChosenColor].TextToColor[txt];
+                    if (text != null)
+                    {
+                        ThemeColors[ChosenColor].TextToColor[txt].color = loadedColor;
+                    }
+                }
+            }
+        }
+        FilePath.text = "Succesfully loaded the last theme.";
+    }
+
     void Update()
     {
         ChosenColorText.text = ThemeColors[ChosenColor].ColorName;
+        if (Input.GetKey(KeyCode.LeftControl))
+        {
+            if (Input.GetKeyDown(KeyCode.C))
+            {
+                CopyColor();
+            }
+            if (Input.GetKeyDown(KeyCode.V))
+            {
+                PasteColor();
+            }
+            if (Input.GetKeyDown(KeyCode.S))
+            {
+                SaveToFile();
+            }
+        }
     }
 
     public Vector3 ConvertRGB(float r, float g, float b)
@@ -98,6 +268,10 @@ public class Themer : MonoBehaviour
         ColorSliders[1].value = ThemeColors[ChosenColor].ColorRGB255.y;
         ColorSliders[2].value = ThemeColors[ChosenColor].ColorRGB255.z;
 
+        ColorInputs[0].text = ThemeColors[ChosenColor].ColorRGB255.x.ToString();
+        ColorInputs[1].text = ThemeColors[ChosenColor].ColorRGB255.y.ToString();
+        ColorInputs[2].text = ThemeColors[ChosenColor].ColorRGB255.z.ToString();
+
         float R = ThemeColors[ChosenColor].ColorRGB1.x;
         float G = ThemeColors[ChosenColor].ColorRGB1.y;
         float B = ThemeColors[ChosenColor].ColorRGB1.z;
@@ -111,7 +285,7 @@ public class Themer : MonoBehaviour
 
     IEnumerator WaitABit()
     {
-        yield return new WaitForSeconds(0.5f);
+        yield return new WaitForSeconds(0.1f);
         Wait = false;
     }
 
@@ -131,6 +305,10 @@ public class Themer : MonoBehaviour
         float r = ColorSliders[0].value;
         float g = ColorSliders[1].value;
         float b = ColorSliders[2].value;
+
+        ColorInputs[0].text = ColorSliders[0].value.ToString();
+        ColorInputs[1].text = ColorSliders[1].value.ToString();
+        ColorInputs[2].text = ColorSliders[2].value.ToString();
 
         newColor255 = new Vector3(r, g, b);
 
@@ -168,6 +346,88 @@ public class Themer : MonoBehaviour
         PreviewColor.color = currentColor;
     }
 
+    public void OnInputChange()
+    {
+        if (Wait == true) return;
+
+        float r = int.Parse(ColorInputs[0].text);
+        float g = int.Parse(ColorInputs[1].text);
+        float b = int.Parse(ColorInputs[2].text);
+
+        for (int i = 0; i < ColorInputs.Count; i++)
+        {
+            if (int.Parse(ColorInputs[i].text) < 0)
+            {
+                ColorInputs[i].text = "0";
+            }
+            if (int.Parse(ColorInputs[i].text) > 255)
+            {
+                ColorInputs[i].text = "255";
+            }
+        }
+
+        ColorSliders[0].value = int.Parse(ColorInputs[0].text);
+        ColorSliders[1].value = int.Parse(ColorInputs[1].text);
+        ColorSliders[2].value = int.Parse(ColorInputs[2].text);
+
+        newColor255 = new Vector3(r, g, b);
+
+        newColor1 = ConvertRGB(r, g, b);
+
+        ThemeColors[ChosenColor].ColorRGB255 = newColor255;
+        ThemeColors[ChosenColor].ColorRGB1 = newColor1;
+
+        Color currentColor = new Color(newColor1.x, newColor1.y, newColor1.z);
+
+        if (ThemeColors[ChosenColor].ImageToColor.Count != 0)
+        {
+            for (int img = 0; img < ThemeColors[ChosenColor].ImageToColor.Count; img++)
+            {
+                Image image = ThemeColors[ChosenColor].ImageToColor[img];
+                if (image != null)
+                {
+                    ThemeColors[ChosenColor].ImageToColor[img].color = currentColor;
+                }
+            }
+        }
+
+        if (ThemeColors[ChosenColor].TextToColor.Count != 0)
+        {
+            for (int txt = 0; txt < ThemeColors[ChosenColor].TextToColor.Count; txt++)
+            {
+                TextMeshProUGUI text = ThemeColors[ChosenColor].TextToColor[txt];
+                if (text != null)
+                {
+                    ThemeColors[ChosenColor].TextToColor[txt].color = currentColor;
+                }
+            }
+        }
+
+        PreviewColor.color = currentColor;
+    }
+
+    public void CopyColor()
+    {
+        if (!Copied) Copied = true;
+        CopiedColor = ThemeColors[ChosenColor].ColorRGB255;
+    }
+
+    public void PasteColor()
+    {
+        if (Copied)
+        {
+            ThemeColors[ChosenColor].ColorRGB255 = CopiedColor;
+            ChangeColor(ThemeColors[ChosenColor].ColorName);
+            StartCoroutine(WaitNow());
+        }
+    }
+
+    IEnumerator WaitNow()
+    {
+        yield return new WaitForSeconds(0.2f);
+        OnSliderChange();
+    }
+
     public string GetRGB255(string themecolor)
     {
         try
@@ -189,6 +449,10 @@ public class Themer : MonoBehaviour
     public void CopyTextToClipboard()
     {
         string text =
+            "// File created with YoRadio Theme Editor created by András Daradics\n" +
+            "// File last modified: " + System.DateTime.Now.ToString() + "\n" +
+            "// GitHub: https://github.com/andrasdaradici/YoRadio-Theme-Editor\n" +
+            "// Itch.io: https://andrasdaradici.itch.io/yoradio-theme-editor\n" +
             "#ifndef _my_theme_h\n" +
             "#define _my_theme_h\n\n" +
             "#define ENABLE_THEME\n" +
@@ -214,7 +478,6 @@ public class Themer : MonoBehaviour
             "#define COLOR_DAY_OF_W    " + GetRGB255("COLOR_DAY_OF_W") + "\n" +
             "#define COLOR_DATE    " + GetRGB255("COLOR_DATE") + "\n" +
 
-            "#define COLOR_HEAP    " + "255, 168, 162" + "\n" +
 
             "#define COLOR_BUFFER    " + GetRGB255("COLOR_BUFFER") + "\n" +
             "#define COLOR_IP    " + GetRGB255("COLOR_IP") + "\n" +
@@ -231,6 +494,7 @@ public class Themer : MonoBehaviour
             "#define COLOR_DIVIDER    " + GetRGB255("COLOR_DIVIDER") + "\n" +
             "#define COLOR_BITRATE    " + GetRGB255("COLOR_BITRATE") + "\n" +
 
+            "#define COLOR_HEAP    " + "255, 168, 162" + "\n" +
             "#define COLOR_PL_CURRENT    " + "0, 0, 0" + "\n" +
             "#define COLOR_PL_CURRENT_BG    " + "91, 118, 255" + "\n" +
             "#define COLOR_PL_CURRENT_FILL    " + "91, 118, 255" + "\n" +
@@ -251,6 +515,10 @@ public class Themer : MonoBehaviour
     public void SaveToFile()
     {
         string text =
+            "// File created with YoRadio Theme Editor created by András Daradics\n" +
+            "// File last modified: " + System.DateTime.Now.ToString() + "\n" +
+            "// GitHub: https://github.com/andrasdaradici/YoRadio-Theme-Editor\n" +
+            "// Itch.io: https://andrasdaradici.itch.io/yoradio-theme-editor\n" +
             "#ifndef _my_theme_h\n" +
             "#define _my_theme_h\n\n" +
             "#define ENABLE_THEME\n" +
@@ -276,7 +544,6 @@ public class Themer : MonoBehaviour
             "#define COLOR_DAY_OF_W    " + GetRGB255("COLOR_DAY_OF_W") + "\n" +
             "#define COLOR_DATE    " + GetRGB255("COLOR_DATE") + "\n" +
 
-            "#define COLOR_HEAP    " + "255, 168, 162" + "\n" +
 
             "#define COLOR_BUFFER    " + GetRGB255("COLOR_BUFFER") + "\n" +
             "#define COLOR_IP    " + GetRGB255("COLOR_IP") + "\n" +
@@ -293,6 +560,7 @@ public class Themer : MonoBehaviour
             "#define COLOR_DIVIDER    " + GetRGB255("COLOR_DIVIDER") + "\n" +
             "#define COLOR_BITRATE    " + GetRGB255("COLOR_BITRATE") + "\n" +
 
+            "#define COLOR_HEAP    " + "255, 168, 162" + "\n" +
             "#define COLOR_PL_CURRENT    " + "0, 0, 0" + "\n" +
             "#define COLOR_PL_CURRENT_BG    " + "91, 118, 255" + "\n" +
             "#define COLOR_PL_CURRENT_FILL    " + "91, 118, 255" + "\n" +
@@ -306,18 +574,16 @@ public class Themer : MonoBehaviour
             "#endif\n"
             ;
 
-        string directoryPath = "C:/Users/" + System.Environment.UserName + "/Documents/YoRadioThemeEditor/";
-        string filePath = Path.Combine(directoryPath, "mytheme.h");
+        string exePath = Application.dataPath.Replace("YoRadio! Theme Editor_Data", "");
+        string filePath = Path.Combine(exePath, "mytheme.h");
 
-        // Check if the directory exists, if not, create it
-        if (!Directory.Exists(directoryPath))
+        if (!Directory.Exists(exePath))
         {
-            Directory.CreateDirectory(directoryPath);
+            FilePath.text = "This should not appear. Contact the developer.";
         }
 
-        // Write string to file
         File.WriteAllText(filePath, text);
-
-        FilePath.text = "Themed saved to: " + filePath;
+        
+        FilePath.text = exePath;
     }
 }
