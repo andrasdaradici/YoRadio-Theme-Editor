@@ -10,6 +10,8 @@ Also available on [itch.io](https://andrasdaradici.itch.io/yoradio-theme-editor)
 - You can copy the color of a selected object using an interface button
 - You can paste the color you copied to a selected object
 - You can set the color values precisely using input fields
+- Darkening and lightening colors at a button press
+- Export a preview image into the same folder as the application
 - Keyboard shortcuts
     - CTRL + C - Copy the color of the selected component
     - CTRL + V - Paste color from the clipboard
