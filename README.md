@@ -1,4 +1,4 @@
-# YoRadio! Theme Editor - Version 1.1.0
+# YoRadio! Theme Editor - Version 1.2.0
 A simple theme editor for YoRadio made in Unity.
 
 Also available on [itch.io](https://andrasdaradici.itch.io/yoradio-theme-editor)
