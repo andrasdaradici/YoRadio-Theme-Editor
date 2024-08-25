@@ -15,4 +15,4 @@ Also available on [itch.io](https://andrasdaradici.itch.io/yoradio-theme-editor)
     - CTRL + V - Paste color from the clipboard
     - CTRL + S - Save the theme
  
-![image](https://github.com/andrasdaradici/YoRadio-Theme-Editor/assets/90605554/d9456cb4-da20-4d69-ba54-f398af6d8e57)
+![image](https://github.com/user-attachments/assets/340b0bb1-3af4-4b3d-b7f1-3428c6739d62)
