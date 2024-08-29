@@ -6,6 +6,9 @@ using System.IO;
 using System;
 using TMPro;
 using System.Runtime.InteropServices.ComTypes;
+using System.Linq;
+using UnityEngine.Networking;
+using UnityEngine.SceneManagement;
 
 [Serializable]
 public class ThemeColor
@@ -38,8 +41,45 @@ public class Themer : MonoBehaviour
 
     public string readData;
 
+    public string SaveLoadPath;
+    public TMP_InputField PathInputField;
+
+    public List<GameObject> SquareScreenAssets;
+    public List<GameObject> RoundScreenAssets;
+
     void Start()
     {
+        if(PlayerPrefs.GetInt("ScreenIndex") == 0)
+        {
+            foreach(var asset in RoundScreenAssets)
+            {
+                asset.SetActive(false);
+            }
+            foreach(var asset in SquareScreenAssets)
+            {
+                asset.SetActive(true);
+            }
+        }
+        if (PlayerPrefs.GetInt("ScreenIndex") == 1)
+        {
+            foreach (var asset in RoundScreenAssets)
+            {
+                asset.SetActive(true);
+            }
+            foreach (var asset in SquareScreenAssets)
+            {
+                asset.SetActive(false);
+            }
+        }
+
+        if (PlayerPrefs.GetString("Path") == "")
+        {
+            SaveLoadPath = Application.dataPath.Replace("YoRadio! Theme Editor_Data", "");
+            PlayerPrefs.SetString("Path", SaveLoadPath);
+        }
+        SaveLoadPath = PlayerPrefs.GetString("Path");
+        PathInputField.text = SaveLoadPath;
+
         CheckForFile();
 
         for (int i = 0; i < ThemeColors.Count; i++)
@@ -84,10 +124,20 @@ public class Themer : MonoBehaviour
         ChangeColor("COLOR_BACKGROUND");
     }
 
+    public void UpdatePath()
+    {
+        PlayerPrefs.SetString("Path", PathInputField.text);
+        SceneManager.LoadScene(0);
+    }
+
+    public void ChangeScreenType(int screenIndex)
+    {
+        PlayerPrefs.SetInt("ScreenIndex", screenIndex);
+    }
+
     public void CheckForFile()
     {
-        string exePath = Application.dataPath.Replace("YoRadio! Theme Editor_Data", "");
-        string filePath = Path.Combine(exePath, "mytheme.h");
+        string filePath = Path.Combine(SaveLoadPath, "mytheme.h");
         if (File.Exists(filePath))
         {
             GetFileData(filePath);
@@ -664,30 +714,29 @@ public class Themer : MonoBehaviour
             "#define COLOR_BITRATE    " + GetRGB255("COLOR_BITRATE") + "\n" +
 
             "#define COLOR_HEAP    " + "255, 168, 162" + "\n" +
-            "#define COLOR_PL_CURRENT    " + "0, 0, 0" + "\n" +
-            "#define COLOR_PL_CURRENT_BG    " + "91, 118, 255" + "\n" +
-            "#define COLOR_PL_CURRENT_FILL    " + "91, 118, 255" + "\n" +
+            "#define COLOR_PL_CURRENT    " + GetRGB255("COLOR_PL_CURRENT") + "\n" +
+            "#define COLOR_PL_CURRENT_BG    " + GetRGB255("COLOR_PL_CURRENT_BG") + "\n" +
+            "#define COLOR_PL_CURRENT_FILL    " + GetRGB255("COLOR_PL_CURRENT_FILL") + "\n" +
 
-            "#define COLOR_PLAYLIST_0    " + "255, 255, 255" + "\n" +
-            "#define COLOR_PLAYLIST_1    " + "255, 255, 255" + "\n" +
-            "#define COLOR_PLAYLIST_2    " + "255, 255, 255" + "\n" +
-            "#define COLOR_PLAYLIST_3    " + "255, 255, 255" + "\n" +
-            "#define COLOR_PLAYLIST_4    " + "255, 255, 255" + "\n\n\n" +
+            "#define COLOR_PLAYLIST_0    " + GetRGB255("COLOR_PLAYLIST_0") + "\n" +
+            "#define COLOR_PLAYLIST_1    " + GetRGB255("COLOR_PLAYLIST_1") + "\n" +
+            "#define COLOR_PLAYLIST_2    " + GetRGB255("COLOR_PLAYLIST_2") + "\n" +
+            "#define COLOR_PLAYLIST_3    " + GetRGB255("COLOR_PLAYLIST_3") + "\n" +
+            "#define COLOR_PLAYLIST_4    " + GetRGB255("COLOR_PLAYLIST_4") + "\n\n\n" +
             "#endif\n" +
             "#endif\n"
             ;
 
-        string exePath = Application.dataPath.Replace("YoRadio! Theme Editor_Data", "");
-        string filePath = Path.Combine(exePath, "mytheme.h");
+        string filePath = Path.Combine(SaveLoadPath, "mytheme.h");
 
-        if (!Directory.Exists(exePath))
+        if (!Directory.Exists(SaveLoadPath))
         {
             FilePath.text = "This should not appear. Contact the developer.";
         }
 
         File.WriteAllText(filePath, text);
         
-        FilePath.text = "Saved theme to: " + exePath;
+        FilePath.text = "Saved theme to: " + filePath;
     }
 
     public void ExportImage()
@@ -737,5 +786,42 @@ public class Themer : MonoBehaviour
         yield return new WaitForSeconds(1f);
         ExportWait.SetActive(false);
         DynamicResolution.ToggleWindowSize();
+    }
+
+    public void ApplyTheme(string fileUrl)
+    {
+        StartCoroutine(GetThemeFromURL(fileUrl));
+    }
+
+    IEnumerator GetThemeFromURL(string fileUrl)
+    {
+        using (UnityWebRequest webRequest = UnityWebRequest.Get(fileUrl))
+        {
+            yield return webRequest.SendWebRequest();
+
+            if (webRequest.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError("Failed to download file: " + webRequest.error);
+                FilePath.text = "Failed to download file. Please check the URL.";
+            }
+            else
+            {
+                string text = webRequest.downloadHandler.text;
+
+                string filePath = Path.Combine(SaveLoadPath, "mytheme.h");
+
+                if (!Directory.Exists(SaveLoadPath))
+                {
+                    Debug.LogError("Directory does not exist: " + SaveLoadPath);
+                    FilePath.text = "Directory does not exist. Contact the developer.";
+                }
+                else
+                {
+                    File.WriteAllText(filePath, text);
+                    yield return new WaitForSeconds(0.05f);
+                    SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+                }
+            }
+        }
     }
 }
